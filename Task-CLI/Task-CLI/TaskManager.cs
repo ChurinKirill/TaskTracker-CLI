@@ -25,7 +25,7 @@ namespace Task_CLI
                 newId = tasks.Last().id + 1;
             }
             
-            this.tasks.Add(new Task(newId, title, description));
+            //this.tasks.Add(new Task(newId, title, description));
         }
 
         public void UpdateTask(int id, TaskUpdateModel updateModel)

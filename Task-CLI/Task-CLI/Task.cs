@@ -21,6 +21,7 @@ namespace Task_CLI
         InProgress
     }
 
+
     public struct TaskUpdateModel
     {
         public string? title;
@@ -37,17 +38,21 @@ namespace Task_CLI
         public DateTime updatedAt { get; set; }
         public Status status { get; set; }
 
-        public Task(int id, string title, string description)
+        public Task(int id, string title, string description, DateTime createdAt, DateTime updatedAt, Status status)
         {
             this.id = id;
             this.title = title;
             this.description = description;
 
-            var creationTime = DateTime.Now;
-            this.createdAt = creationTime;
-            this.updatedAt = creationTime;
+            //var creationTime = DateTime.Now;
+            //this.createdAt = creationTime;
+            //this.updatedAt = creationTime;
 
-            this.status = Status.NotDone;
+            //this.status = Status.NotDone;
+
+            this.createdAt = createdAt;
+            this.updatedAt = updatedAt;
+            this.status = status;
         }
 
         public override string ToString()
