@@ -18,7 +18,7 @@ public class TaskTrackerWindow : Window
 
     TaskManager taskManager;
 
-    static readonly string[] statusOptions =
+    static readonly NStack.ustring[] statusOptions =
         { "Done", "Not done", "In progress" };
 
     TableView tableView;
@@ -71,7 +71,7 @@ public class TaskTrackerWindow : Window
                 task.createdAt,
                 task.updatedAt,
                 task.status switch 
-                { 
+                {
                     Status.Done => "Done",
                     Status.NotDone => "Not done",
                     Status.InProgress => "In progress",
@@ -158,20 +158,6 @@ public class TaskTrackerWindow : Window
             ShowSortingSettingsDialog();
         };
 
-        //var btnFilter = new Button()
-        //{
-        //    Text = "Test filter",
-        //    X = Pos.Right(btnSort) + 4,
-        //    Y = Pos.Bottom(tableView),
-        //    IsDefault = false
-        //};
-
-        //btnFilter.Clicked += () =>
-        //{
-        //    this.dataTable.DefaultView.RowFilter = "Status = 'Done'";
-        //    this.tableView.Update();
-        //};
-
         // Добавляем элементы в окно
         Add(tableView, btnHelp, btnAdd, btnSort);
     }
@@ -243,13 +229,13 @@ public class TaskTrackerWindow : Window
         var idLabel = new Label()
         {
             Text = $"ID: {id}",
-            X = 0,
-            Y = 0,
+            X = 1,
+            Y = 2,
         };
         var titleLabel = new Label()
         {
             Text = "Title:",
-            X = 0,
+            X = 1,
             Y = Pos.Bottom(idLabel) + 1,
         };
         var titleText = new TextField("")
@@ -261,7 +247,7 @@ public class TaskTrackerWindow : Window
         var descriptionLabel = new Label()
         {
             Text = "Description:",
-            X = 0,
+            X = 1,
             Y = Pos.Bottom(titleLabel) + 1,
         };
         var descriptionText = new TextField("")
@@ -380,24 +366,34 @@ public class TaskTrackerWindow : Window
         var dialog = new Dialog("", 50, 10);
 
         // ComboBox с вариантами
-        var comboBox = new ComboBox()
+        //var comboBox = new ComboBox()
+        //{
+        //    X = 1,
+        //    Y = 1,
+        //    Width = 45,
+        //    Height = 5,
+        //    Source = new ListWrapper(statusOptions.ToList()),
+        //};
+        //comboBox.SelectedItem = currentIndex;
+
+        var statusRadioGroup = new RadioGroup(statusOptions)
         {
             X = 1,
-            Y = 1,
-            Width = 45,
-            Height = 5,
-            Source = new ListWrapper(statusOptions.ToList()),
+            Y = 2,
+            Width = Dim.Fill(),
+            Height = 6
         };
-        comboBox.SelectedItem = currentIndex;
+
+        statusRadioGroup.SelectedItem = currentIndex;
 
         // Подсказка
-        var label = new Label("Select new status: (F4 to open list)")
+        var label = new Label("Select new status:")
         {
             X = 1,
             Y = 0
         };
 
-        dialog.Add(label, comboBox);
+        dialog.Add(label, statusRadioGroup);
 
         bool isConfirmed = false;
 
@@ -424,7 +420,7 @@ public class TaskTrackerWindow : Window
 
         if (isConfirmed)
         {
-            var selectedValue = statusOptions[comboBox.SelectedItem];
+            var selectedValue = statusOptions[statusRadioGroup.SelectedItem];
             row["Status"] = selectedValue;
             row["Updated at"] = DateTime.Now;
 
@@ -443,8 +439,8 @@ public class TaskTrackerWindow : Window
         var label = new Label()
         {
             Text = $"Current sorting by \"{this.currentSortColumn}\" {(this.sortAscending ? "ASC" : "DESC")}",
-            X = 0,
-            Y = 0,
+            X = 1,
+            Y = 1,
             Width = Dim.Fill(),
             Height = 1,
         };
@@ -462,8 +458,8 @@ public class TaskTrackerWindow : Window
             "Status",
         })
         {
-            X = 0,
-            Y = 2,
+            X = 1,
+            Y = Pos.Bottom(label) + 1,
             Width = 25,
             Height = 6
         };
@@ -475,7 +471,7 @@ public class TaskTrackerWindow : Window
         })
         {
             X = Pos.Right(radioGroupColumns) + 4,
-            Y = 2,
+            Y = Pos.Bottom(label) + 1,
             Width = 25,
             Height = 6
         };
@@ -483,7 +479,7 @@ public class TaskTrackerWindow : Window
         var selectedLabel = new Label()
         {
             Text = "Nothing selected",
-            X = 0,
+            X = 1,
             Y = Pos.Bottom(radioGroupColumns) + 10,
             Width = Dim.Fill(),
             Height = 1,
