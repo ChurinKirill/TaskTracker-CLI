@@ -1,7 +1,6 @@
 ﻿
 using System.Data;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Task_CLI;
 using Terminal.Gui;
 
@@ -12,7 +11,6 @@ Application.Shutdown();
 
 public class TaskTrackerWindow : Window
 {
-    //public static string? Username { get; internal set; }
     
     DataTable dataTable;
 
@@ -25,6 +23,7 @@ public class TaskTrackerWindow : Window
 
     string currentSortColumn = "ID";
     bool sortAscending = true;
+    bool selectiondestination = true;
 
     public TaskTrackerWindow()
     {
@@ -55,28 +54,32 @@ public class TaskTrackerWindow : Window
 
         this.dataTable = new DataTable("Tasks");
 
+        this.dataTable.Columns.Add(" ", typeof(string));
         this.dataTable.Columns.Add("ID", typeof(int));
         this.dataTable.Columns.Add("Title", typeof(string));
         this.dataTable.Columns.Add("Description", typeof(string));
-        this.dataTable.Columns.Add("Created at", typeof(DateTime));
-        this.dataTable.Columns.Add("Updated at", typeof(DateTime));
         this.dataTable.Columns.Add("Status", typeof(string));
+        this.dataTable.Columns.Add("Updated at", typeof(DateTime));
+        this.dataTable.Columns.Add("Created at", typeof(DateTime));
+        this.dataTable.Columns.Add("ValueSelected", typeof(bool));
 
         foreach (var task in this.taskManager.DumpTasks())
         {
             this.dataTable.Rows.Add(
+                " ",
                 task.id,
                 task.title,
                 task.description,
-                task.createdAt,
-                task.updatedAt,
-                task.status switch 
+                task.status switch
                 {
                     Status.Done => "Done",
                     Status.NotDone => "Not done",
                     Status.InProgress => "In progress",
                     _ => "Not done"
-                });
+                },
+                task.updatedAt,
+                task.createdAt,
+                false);
         }
 
 
@@ -90,23 +93,34 @@ public class TaskTrackerWindow : Window
             MultiSelect = false,
         };
 
-        tableView.Style.AlwaysShowHeaders = true;
-        tableView.Style.ExpandLastColumn = true;
-        tableView.Style.ShowHorizontalHeaderOverline = true;
-        tableView.Style.ShowVerticalCellLines = true;
+        // NOTE: при добавлениии записи в DataTable колнка снова становится видимой
+        this.tableView.Style.ColumnStyles[this.dataTable.Columns["ValueSelected"]] = new TableView.ColumnStyle() { Visible = false };
 
-        tableView.CellActivated += (args) =>
+        this.tableView.Style.AlwaysShowHeaders = true;
+        this.tableView.Style.ExpandLastColumn = true;
+        this.tableView.Style.ShowHorizontalHeaderOverline = true;
+        this.tableView.Style.ShowVerticalCellLines = true;
+
+        
+
+        this.tableView.CellActivated += (args) =>
         {
 
             // Проверяем, что активирована колонка Title или DEscription (индексы 1 или 2)
-            if ((args.Col == 1 || args.Col == 2) && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
+            if ((args.Col == 2 || args.Col == 3) && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
             {
                 ShowDataEditDialog(args.Row, args.Col);
             }
             // Проверяем, что активирована колонка "Статус" (индекс 5)
-            else if (args.Col == 5 && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
+            else if (args.Col == 4 && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
             {
                 ShowStatusSelectionDialog(args.Row);
+            }
+            else if (args.Col == 0 && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
+            {
+                this.dataTable.Rows[args.Row]["ValueSelected"] = !(bool)this.dataTable.Rows[args.Row]["ValueSelected"];
+                this.dataTable.Rows[args.Row][" "] = (bool)this.dataTable.Rows[args.Row]["ValueSelected"] ? "V" : " ";
+                this.tableView.Update();
             }
             else
             {
@@ -123,7 +137,7 @@ public class TaskTrackerWindow : Window
         {
             Text = helpText,
             X = Pos.AnchorEnd(1) - (helpText.Length + 4),
-            Y = Pos.Bottom(tableView),
+            Y = Pos.Bottom(this.tableView),
             IsDefault = false
         };
 
@@ -136,7 +150,7 @@ public class TaskTrackerWindow : Window
         {
             Text = "Add",
             X = 0,
-            Y = Pos.Bottom(tableView),
+            Y = Pos.Bottom(this.tableView),
             IsDefault = false
         };
 
@@ -149,7 +163,7 @@ public class TaskTrackerWindow : Window
         {
             Text = "Sorting",
             X = Pos.Right(btnAdd) + 1,
-            Y = Pos.Bottom(tableView),
+            Y = Pos.Bottom(this.tableView),
             IsDefault = false
         };
 
@@ -158,8 +172,79 @@ public class TaskTrackerWindow : Window
             ShowSortingSettingsDialog();
         };
 
-        // Добавляем элементы в окно
-        Add(tableView, btnHelp, btnAdd, btnSort);
+        var btnSelectionTrigger = new Button()
+        {
+            Text = this.selectiondestination ? " S_elect all " : "Uns_elect all",
+            X = Pos.Right(btnSort) + 1,
+            Y = Pos.Bottom(this.tableView),
+            IsDefault = false
+        };
+
+        btnSelectionTrigger.Clicked += () =>
+        {
+            ChangeAllSelection();
+            this.selectiondestination = !this.selectiondestination;
+            btnSelectionTrigger.Text = this.selectiondestination ? " S_elect all " : "Uns_elect all";
+        };
+
+        var btnDeleteSelected = new Button()
+        {
+            Text = "Delete selected",
+            X = Pos.Right(btnSelectionTrigger) + 1,
+            Y = Pos.Bottom(this.tableView),
+            IsDefault = false
+        };
+
+        btnDeleteSelected.Clicked += () =>
+        {
+            int countSelected = 0;
+
+            foreach (DataRow row in this.dataTable.Rows)
+            {
+                if ((bool)row["ValueSelected"]) countSelected++;
+            }
+
+            if (countSelected > 0)
+                ShowDeletionDialog();
+            else
+                MessageBox.Query("Note", "Nothing selected", "OK");
+        };
+
+        var btnChangeStatusSelected = new Button()
+        {
+            Text = "Change status",
+            X = Pos.Right(btnDeleteSelected) + 1,
+            Y = Pos.Bottom(this.tableView),
+            IsDefault = false
+        };
+
+        btnChangeStatusSelected.Clicked += () =>
+        {
+            int countSelected = 0;
+
+            foreach (DataRow row in this.dataTable.Rows)
+            {
+                if ((bool)row["ValueSelected"]) countSelected++;
+            }
+
+            if (countSelected > 0)
+                ShowStatusSelectionDialog();
+            else
+                MessageBox.Query("NOTE", "Nothing selected", "OK");
+        };
+
+        Add(tableView, btnAdd, btnSort, btnSelectionTrigger, btnDeleteSelected, btnChangeStatusSelected, btnHelp);
+    }
+
+    private void ChangeAllSelection()
+    {
+        foreach (DataRow row in this.dataTable.Rows)
+        {
+            row["ValueSelected"] = this.selectiondestination;
+            row[" "] = this.selectiondestination ? "V" : "X";
+        }
+        this.tableView.Update();
+
     }
 
     private void SaveChanges()
@@ -282,20 +367,24 @@ public class TaskTrackerWindow : Window
         if (isConfirmed)
         {
             this.dataTable.Rows.Add(
+                " ",
                 id,
                 titleText.Text,
                 descriptionText.Text,
+                "Not done",
                 DateTime.Now,
                 DateTime.Now,
-                "Not done"
+                false
                 );
 
             SaveChanges();
+
+            // Не работает this.tableView.Style.ColumnStyles[this.dataTable.Columns["ValueSelected"]].Visible = false;
             SortTable();
         }
     }
 
-    private void ShowDataEditDialog(int rowIndex, int colimnIndex)
+    private void ShowDataEditDialog(int rowIndex, int colimnIndex)  
     {
         var currentValue = this.dataTable.Rows[rowIndex][colimnIndex].ToString();
         var dialog = new Dialog("", 60, 20);
@@ -355,6 +444,70 @@ public class TaskTrackerWindow : Window
         }
     }
 
+    private void ShowStatusSelectionDialog()
+    {
+        var dialog = new Dialog("", 50, 10);
+
+        var statusRadioGroup = new RadioGroup(statusOptions)
+        {
+            X = 1,
+            Y = 2,
+            Width = Dim.Fill(),
+            Height = 6
+        };
+
+        statusRadioGroup.SelectedItem = 0;
+
+        var label = new Label("Select new status:")
+        {
+            X = 1,
+            Y = 0
+        };
+
+        dialog.Add(label, statusRadioGroup);
+
+        bool isConfirmed = false;
+
+        var btnAccept = new Button("Accept") { IsDefault = true };
+        var btnCancel = new Button("Calcel");
+
+        btnAccept.Clicked += () =>
+        {
+            isConfirmed = true;
+            Application.RequestStop();
+        };
+
+        btnCancel.Clicked += () =>
+        {
+            isConfirmed = false;
+            Application.RequestStop();
+        };
+
+        dialog.AddButton(btnAccept);
+        dialog.AddButton(btnCancel);
+
+        Application.Run(dialog);
+
+        if (isConfirmed)
+        {
+            var selectedValue = statusOptions[statusRadioGroup.SelectedItem];
+
+            foreach (DataRow row in this.dataTable.Rows)
+            {
+                if ((bool)row["ValueSelected"])
+                {
+                    row["Status"] = selectedValue;
+                    row["Updated at"] = DateTime.Now;
+                }
+            };
+
+            SaveChanges();
+            this.tableView.Update();
+
+            MessageBox.Query("Updated", $"Status changed to: {selectedValue}", "OK");
+        };
+    }
+
     private void ShowStatusSelectionDialog(int rowIndex)
     {
         var row = this.dataTable.Rows[rowIndex];
@@ -362,19 +515,7 @@ public class TaskTrackerWindow : Window
         var currentIndex = Array.IndexOf(statusOptions, currentStatus);
         if (currentIndex < 0) currentIndex = 0;
 
-        // Создаем диалог с ComboBox
         var dialog = new Dialog("", 50, 10);
-
-        // ComboBox с вариантами
-        //var comboBox = new ComboBox()
-        //{
-        //    X = 1,
-        //    Y = 1,
-        //    Width = 45,
-        //    Height = 5,
-        //    Source = new ListWrapper(statusOptions.ToList()),
-        //};
-        //comboBox.SelectedItem = currentIndex;
 
         var statusRadioGroup = new RadioGroup(statusOptions)
         {
@@ -415,7 +556,6 @@ public class TaskTrackerWindow : Window
         dialog.AddButton(okButton);
         dialog.AddButton(cancelButton);
 
-        // Запускаем диалог
         Application.Run(dialog);
 
         if (isConfirmed)
@@ -425,7 +565,7 @@ public class TaskTrackerWindow : Window
             row["Updated at"] = DateTime.Now;
 
             SaveChanges();
-            tableView.Update();
+            this.tableView.Update();
 
             // Информируем об изменении
             MessageBox.Query("Updated", $"Status changed to: {selectedValue}", "OK");
@@ -535,29 +675,135 @@ public class TaskTrackerWindow : Window
         }
     }
 
+    private void ShowDeletionDialog()
+    {
+        var dialog = new Dialog("", 70, 20);
+
+        var displayDataTable = new DataTable("Data");
+
+        displayDataTable.Columns.Add("ID", typeof(int));
+        displayDataTable.Columns.Add("Title", typeof(string));
+        displayDataTable.Columns.Add("Description", typeof(string));
+        displayDataTable.Columns.Add("Status", typeof(string));
+
+        foreach (DataRow row in this.dataTable.Rows)
+        {
+            if ((bool)row["ValueSelected"])
+                displayDataTable.Rows.Add(row["ID"], row["Title"], row["Description"], row["Status"]);
+        }
+
+        var displayTableView = new TableView(displayDataTable)
+        {
+            X = 1,
+            Y = 3,
+            Width = Dim.Fill() - 2,
+            Height = Dim.Fill() - 2,
+        };
+
+        displayTableView.Style.AlwaysShowHeaders = true;
+        displayTableView.Style.ExpandLastColumn = true;
+        displayTableView.Style.ShowHorizontalHeaderOverline = true;
+        displayTableView.Style.ShowVerticalCellLines = true;
+
+        var label = new Label()
+        {
+            Text = "Delete this tasks?",
+            X = 1,
+            Y = 1,
+            Width = Dim.Fill(),
+        };
+
+        var btnDelete = new Button("Delete") { IsDefault = true };
+        var btnCancel = new Button("Cancel");
+
+        bool isConfirmed = false;
+
+        btnDelete.Clicked += () =>
+        {
+            isConfirmed = true;
+            Application.RequestStop();
+        };
+        btnCancel.Clicked += () =>
+        {
+            isConfirmed = false;
+            Application.RequestStop();
+        };
+
+        dialog.Add(label, displayTableView);
+        dialog.AddButton(btnDelete);
+        dialog.AddButton(btnCancel);
+
+        Application.Run(dialog);
+
+        if (isConfirmed)
+        {
+            int cnt = 0;
+            for (int i = this.dataTable.Rows.Count - 1; i >= 0; i--)
+            {
+                if ((bool)this.dataTable.Rows[i]["ValueSelected"])
+                {
+                    this.dataTable.Rows.RemoveAt(i);
+
+                    cnt++;
+                }
+            }
+
+            SaveChanges();
+            this.tableView.Update();
+
+            MessageBox.Query("Deleted", $"{cnt} tasks deleted successfully", "OK");
+        }
+    }
+
     private void ShowHelpDialog()
     {
-        var dialog = new Dialog("Help menu", 70, 20);
+        var dialog = new Dialog("Help menu", 80, 20);
 
         List<Label> texts = new List<Label>()
         {
             new Label()
             {
-                Text = "Press shift+A or \"Add\" button to add new task",
+                Text = "Press alt+A or \"Add\" button to add new task",
                 Width = Dim.Fill(),
                 Height = 2,
             },
             new Label()
             {
-                Text = "Press shift+D or \"Delete\" button to delete selected task",
+                Text = "Press alt+S or \"Sorting\" button to choose sorting method",
+                Width = Dim.Fill(),
+                Height = 2,
+            },
+            new Label()
+            {
+                Text = "Press alt+E or \"Select all\"/\"Unselect all\" button to select/unselect all tasks",
+                Width = Dim.Fill(),
+                Height = 2,
+            },
+            new Label()
+            {
+                Text = "Press alt+D or \"Delete selected\" button to delete all selected task",
+                Width = Dim.Fill(),
+                Height = 2,
+            },
+            new Label()
+            {
+                Text = "Press alt+C or \"Change status\" button to change status of all selected task",
+                Width = Dim.Fill(),
+                Height = 2,
+            },
+            new Label()
+            {
+                Text = "Press alt+H or \"Help\" button to open help menu",
                 Width = Dim.Fill(),
                 Height = 2,
             },
         };
-        
-        for (int i = 0; i <  texts.Count; i++)
+
+        texts[0].Y = 1;
+        dialog.Add(texts[0]);
+        for (int i = 1; i < texts.Count; i++)
         {
-            texts[i].Y = i * 3;
+            texts[i].Y = i * 2 + 1;
             dialog.Add(texts[i]);
         }
 
@@ -580,7 +826,7 @@ public class TaskTrackerWindow : Window
 }
 
 /*
-
+// Старая добрая память
 List<Task_CLI.Task> tasks;
 
 string jsonText = String.Empty;
