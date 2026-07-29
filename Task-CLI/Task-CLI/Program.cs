@@ -93,7 +93,6 @@ public class TaskTrackerWindow : Window
             MultiSelect = false,
         };
 
-        // NOTE: при добавлениии записи в DataTable колнка снова становится видимой
         this.tableView.Style.ColumnStyles[this.dataTable.Columns["ValueSelected"]] = new TableView.ColumnStyle() { Visible = false };
 
         this.tableView.Style.AlwaysShowHeaders = true;
@@ -101,21 +100,20 @@ public class TaskTrackerWindow : Window
         this.tableView.Style.ShowHorizontalHeaderOverline = true;
         this.tableView.Style.ShowVerticalCellLines = true;
 
-        
-
         this.tableView.CellActivated += (args) =>
         {
 
-            // Проверяем, что активирована колонка Title или DEscription (индексы 1 или 2)
+            // Проверяем, что активирована колонка Title или DEscription (индексы 2 или 3)
             if ((args.Col == 2 || args.Col == 3) && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
             {
                 ShowDataEditDialog(args.Row, args.Col);
             }
-            // Проверяем, что активирована колонка "Статус" (индекс 5)
+            // Проверяем, что активирована колонка "Статус" (индекс 4)
             else if (args.Col == 4 && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
             {
                 ShowStatusSelectionDialog(args.Row);
             }
+            // Проверяем, что активирована колонка выбора задачи (индекс 0)
             else if (args.Col == 0 && args.Row >= 0 && args.Row < this.dataTable.Rows.Count)
             {
                 this.dataTable.Rows[args.Row]["ValueSelected"] = !(bool)this.dataTable.Rows[args.Row]["ValueSelected"];
@@ -379,7 +377,16 @@ public class TaskTrackerWindow : Window
 
             SaveChanges();
 
-            // Не работает this.tableView.Style.ColumnStyles[this.dataTable.Columns["ValueSelected"]].Visible = false;
+            this.tableView.Table = this.dataTable;
+
+            // C'est la vie, иначе не работает :(
+            Application.MainLoop.Invoke(() =>
+            {
+                tableView.Style.ColumnStyles[dataTable.Columns["ValueSelected"]] =
+                    new TableView.ColumnStyle() { Visible = false };
+                tableView.SetNeedsDisplay();
+            });
+
             SortTable();
         }
     }
