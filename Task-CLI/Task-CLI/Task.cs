@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Task_CLI
+﻿namespace Task_CLI
 {
     public enum TaskFields
     {
@@ -43,12 +37,6 @@ namespace Task_CLI
             this.id = id;
             this.title = title;
             this.description = description;
-
-            //var creationTime = DateTime.Now;
-            //this.createdAt = creationTime;
-            //this.updatedAt = creationTime;
-
-            //this.status = Status.NotDone;
 
             this.createdAt = createdAt;
             this.updatedAt = updatedAt;

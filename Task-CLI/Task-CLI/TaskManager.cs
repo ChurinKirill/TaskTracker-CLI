@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-
-namespace Task_CLI
+﻿namespace Task_CLI
 {
-    internal class TaskManager
+    public class TaskManager
     {
 
         List<Task> tasks;
@@ -25,7 +18,7 @@ namespace Task_CLI
                 newId = tasks.Last().id + 1;
             }
             
-            //this.tasks.Add(new Task(newId, title, description));
+            this.tasks.Add(new Task(newId, title, description, DateTime.Now, DateTime.Now, Status.NotDone));
         }
 
         public void UpdateTask(int id, TaskUpdateModel updateModel)

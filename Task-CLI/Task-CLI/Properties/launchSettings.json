@@ -1,8 +1,7 @@
 {
   "profiles": {
     "Task-CLI": {
-      "commandName": "Project",
-      "commandLineArgs": "list -s title done"
+      "commandName": "Project"
     }
   }
 }

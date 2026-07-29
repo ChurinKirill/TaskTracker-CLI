@@ -6,26 +6,9 @@ using Terminal.Gui;
 
 
 
-Application.Run<TaskTrackerWindow>();
-Application.Shutdown();
-
-public class TaskTrackerWindow : Window
+internal class Program
 {
-    
-    DataTable dataTable;
-
-    TaskManager taskManager;
-
-    static readonly NStack.ustring[] statusOptions =
-        { "Done", "Not done", "In progress" };
-
-    TableView tableView;
-
-    string currentSortColumn = "ID";
-    bool sortAscending = true;
-    bool selectiondestination = true;
-
-    public TaskTrackerWindow()
+    private static void Main(string[] args)
     {
         List<Task_CLI.Task> tasks;
         string jsonText = String.Empty;
@@ -48,9 +31,276 @@ public class TaskTrackerWindow : Window
         {
             tasks = new List<Task_CLI.Task>();
         }
-        this.taskManager = new TaskManager(tasks);
 
-        Title = "Task tracker (Ctrl+Q for exit)";
+        TaskManager taskManager = new TaskManager(tasks);
+
+        if (args.Length == 0)
+        {
+            Application.Init();
+
+            var window = new TaskTrackerWindow("Task tracker (Ctrl+Q for exit)", taskManager);
+            // Application.Run<TaskTrackerWindow>();
+            Application.Run(window);
+            window.Dispose();
+            Application.Shutdown();
+        }
+        else
+        {
+            string helpText =
+                """
+                Usage args:
+                 * Without args -> the TUI version will be opened
+                 * add Title [-d Description] -> add task
+                 * update ID <set of commands> -> update task with given ID (you can type several commands)
+                   ** -t/-title <New title>
+                   ** -d/-description <New description>
+                   ** -s/-status <New status> (not-done, done, in-progress)
+                 * list [-s/-sort <Sorting value>] [<Sorting status>]
+                   -> print tasks
+                      - if given -s/-sort flag, tasks will be sorted by <Sorting value> value ascending
+                      - if given <Sorting status>, there will be shown tasks only with <Sorting status> status
+                """;
+
+            switch (args[0])
+            {
+                case "add":
+                    string title = args[1];
+                    string description = "No description";
+
+
+                    if (args.Length > 2 && (args[2] == "-d" || args[2] == "-description"))
+                    {
+                        description = args[3];
+                    }
+                    else if (args.Length > 2)
+                    {
+                        Console.WriteLine("Unknown command, please try again!");
+                        break;
+                    }
+
+                    taskManager.AddTask(title, description);
+                    Console.WriteLine($"Task {title} added successfully");
+
+                    break;
+
+                case "update":
+                    var model = new TaskUpdateModel();
+
+                    if (args.Length < 2)
+                    {
+                        Console.WriteLine("Unknown command, please try again!");
+                        break;
+                    }
+                    bool parseSuccess = int.TryParse(args[1], out int id);
+
+                    if (!parseSuccess)
+                    {
+                        Console.WriteLine("Unknown command, please try again!");
+                        break;
+                    }
+
+                    for (int i = 2; i < args.Length; i += 2)
+                    {
+                        try
+                        {
+
+                            switch (args[i])
+                            {
+                                case "-t":
+                                case "-title":
+                                    model.title = args[i + 1];
+                                    break;
+
+                                case "-d":
+                                case "-description":
+                                    model.description = args[i + 1];
+                                    break;
+
+                                case "-s":
+                                case "-status":
+
+                                    switch (args[i + 1])
+                                    {
+                                        case "done":
+                                            model.status = Status.Done;
+                                            break;
+
+                                        case "in-progress":
+                                            model.status = Status.InProgress;
+                                            break;
+
+                                        case "not-done":
+                                            model.status = Status.NotDone;
+                                            break;
+                                    }
+
+                                    break;
+
+                                default:
+                                    Console.WriteLine("Unknown command, please try again!");
+                                    break;
+                            }
+                        }
+                        catch (Exception e)
+                        {
+
+                            Console.WriteLine(e);
+                        }
+
+                    }
+
+                    taskManager.UpdateTask(id, model);
+                    Console.WriteLine($"Task {id} updated successfully");
+
+                    break;
+
+                case "list":
+
+                    string result = "id\ttitle\tdescription\tcreated-at\tupdated-at\tstatus\n";
+
+                    Status? sortStatus = null;
+
+                    if (args.Length == 1)
+                    {
+                        result += taskManager.ListTasks(TaskFields.Id, null);
+                    }
+                    else if (args[1] == "-s" || args[1] == "-sort")
+                    {
+                        TaskFields sortField;
+                        if (args.Length < 3)
+                        {
+                            Console.WriteLine("Unknown command, please try again!");
+                            break;
+                        }
+                        switch (args[2])
+                        {
+                            case "title":
+                                sortField = TaskFields.Title;
+                                break;
+
+                            case "description":
+                                sortField = TaskFields.Description;
+                                break;
+
+                            case "created-at":
+                                sortField = TaskFields.CreatedAt;
+                                break;
+
+                            case "updated-at":
+                                sortField = TaskFields.UpdatedAt;
+                                break;
+
+                            default:
+                                sortField = TaskFields.Id;
+                                break;
+                        }
+
+                        if (args.Length == 4)
+                        {
+                            switch (args[3])
+                            {
+                                case "done":
+                                    sortStatus = Status.Done;
+                                    break;
+
+                                case "not-done":
+                                    sortStatus = Status.NotDone;
+                                    break;
+
+                                case "in-progress":
+                                    sortStatus = Status.InProgress;
+                                    break;
+                            }
+                        }
+                        result += taskManager.ListTasks(sortField, sortStatus);
+                    }
+                    else
+                    {
+                        switch (args[1])
+                        {
+                            case "done":
+                                sortStatus = Status.Done;
+                                break;
+
+                            case "not-done":
+                                sortStatus = Status.NotDone;
+                                break;
+
+                            case "in-progress":
+                                sortStatus = Status.InProgress;
+                                break;
+
+                            default:
+                                Console.WriteLine("Unknown command, please try again!");
+                                break;
+                        }
+
+                        result += taskManager.ListTasks(TaskFields.Id, sortStatus);
+                    }
+
+                    Console.Write(result);
+
+                    break;
+
+                case "help":
+                    Console.Write(helpText);
+                    break;
+
+                default:
+                    Console.WriteLine("Unknown command, please try again!");
+                    break;
+            }
+
+            List<Task_CLI.Task> outputTasks = taskManager.DumpTasks();
+
+            jsonText = JsonSerializer.Serialize(outputTasks);
+            File.WriteAllText("data.json", jsonText);
+
+        }
+
+    }
+}
+
+public class TaskTrackerWindow : Window
+{
+    
+    DataTable dataTable;
+
+    //TaskManager taskManager;
+
+    static readonly NStack.ustring[] statusOptions =
+        { "Done", "Not done", "In progress" };
+
+    TableView tableView;
+
+    string currentSortColumn = "ID";
+    bool sortAscending = true;
+    bool selectiondestination = true;
+
+    public TaskTrackerWindow(string title, TaskManager taskManager) : base(title)
+    {
+        //List<Task_CLI.Task> tasks;
+        //string jsonText = String.Empty;
+        //bool fileExists = File.Exists("data.json");
+
+        //if (fileExists)
+        //{
+        //    jsonText = File.ReadAllText("data.json");
+        //    var deserializedData = JsonSerializer.Deserialize<List<Task_CLI.Task>>(jsonText);
+        //    if (deserializedData == null)
+        //    {
+        //        tasks = new List<Task_CLI.Task>();
+        //    }
+        //    else
+        //    {
+        //        tasks = deserializedData;
+        //    }
+        //}
+        //else
+        //{
+        //    tasks = new List<Task_CLI.Task>();
+        //}
+        //taskManager = new TaskManager(tasks);
 
         this.dataTable = new DataTable("Tasks");
 
@@ -63,7 +313,7 @@ public class TaskTrackerWindow : Window
         this.dataTable.Columns.Add("Created at", typeof(DateTime));
         this.dataTable.Columns.Add("ValueSelected", typeof(bool));
 
-        foreach (var task in this.taskManager.DumpTasks())
+        foreach (var task in taskManager.DumpTasks())
         {
             this.dataTable.Rows.Add(
                 " ",
@@ -831,224 +1081,3 @@ public class TaskTrackerWindow : Window
     }
 
 }
-
-/*
-// Старая добрая память
-List<Task_CLI.Task> tasks;
-
-string jsonText = String.Empty;
-bool fileExists = File.Exists("data.json");
-
-if (fileExists)
-{
-    jsonText = File.ReadAllText("data.json");
-    var deserializedData = JsonSerializer.Deserialize<List<Task_CLI.Task>>(jsonText);
-    if (deserializedData == null)
-    {
-        tasks = new List<Task_CLI.Task>();
-    }
-    else
-    {
-        tasks = deserializedData;
-    }
-}
-else
-{
-    tasks = new List<Task_CLI.Task>();
-}
-
-TaskManager taskManager = new TaskManager(tasks);
-
-switch (args[0])
-{
-    case "add":
-        string title = args[1];
-        string description = "No description";
-
-
-        if (args.Length > 2 && (args[2] == "-d" || args[2] == "-description"))
-        {
-            description = args[3];
-        }
-        else if (args.Length > 2)
-        {
-            Console.WriteLine("Unknown command, please try again!");
-            break;
-        }
-
-        taskManager.AddTask(title, description);
-        Console.WriteLine($"Task {title} added successfully");
-        
-        break;
-
-    case "update":
-        var model = new TaskUpdateModel();
-
-        if (args.Length < 2)
-        {
-            Console.WriteLine("Unknown command, please try again!");
-            break;
-        }
-        bool parseSuccess = int.TryParse(args[1], out int id);
-
-        if (!parseSuccess)
-        {
-            Console.WriteLine("Unknown command, please try again!");
-            break;
-        }
-
-        for (int i = 2; i < args.Length; i += 2)
-        {
-            try
-            {
-
-                switch (args[i])
-                {
-                    case "-t":
-                    case "-title":
-                        model.title = args[i + 1];
-                        break;
-
-                    case "-d":
-                    case "-description":
-                        model.description = args[i + 1];
-                        break;
-
-                    case "-s":
-                    case "-status":
-
-                        switch (args[i + 1])
-                        {
-                            case "done":
-                                model.status = Status.Done;
-                                break;
-
-                            case "in-progress":
-                                model.status = Status.InProgress;
-                                break;
-
-                            case "not-done":
-                                model.status = Status.NotDone;
-                                break;
-                        }
-
-                        break;
-
-                    default:
-                        Console.WriteLine("Unknown command, please try again!");
-                        break;
-                }
-            }
-            catch (Exception e)
-            {
-
-                Console.WriteLine(e);
-            }
-
-        }
-
-        taskManager.UpdateTask(id, model);
-        Console.WriteLine($"Task {id} updated successfully");
-
-        break;
-
-    case "list":
-
-        string result = "id\ttitle\tdescription\tcreated-at\tupdated-at\tstatus\n";
-
-        Status? sortStatus = null;
-
-        if (args.Length == 1)
-        {
-            result += taskManager.ListTasks(TaskFields.Id, null);
-        }
-        else if (args[1] == "-s" || args[1] == "-sort")
-        {
-            TaskFields sortField;
-            if (args.Length < 3)
-            {
-                Console.WriteLine("Unknown command, please try again!");
-                break;
-            }
-            switch (args[2])
-            {
-                case "title":
-                    sortField = TaskFields.Title;
-                    break;
-
-                case "description":
-                    sortField = TaskFields.Description;
-                    break;
-
-                case "created-at":
-                    sortField = TaskFields.CreatedAt;
-                    break;
-
-                case "updated-at":
-                    sortField = TaskFields.UpdatedAt;
-                    break;
-
-                default:
-                    sortField = TaskFields.Id;
-                    break;
-            }
-
-            if (args.Length == 4)
-            {
-                switch (args[3])
-                {
-                    case "done":
-                        sortStatus = Status.Done;
-                        break;
-
-                    case "not-done":
-                        sortStatus = Status.NotDone;
-                        break;
-
-                    case "in-progress":
-                        sortStatus = Status.InProgress;
-                        break;
-                }
-            }
-            result += taskManager.ListTasks(sortField, sortStatus);
-        }
-        else
-        {
-            switch (args[1])
-            {
-                case "done":
-                    sortStatus = Status.Done;
-                    break;
-
-                case "not-done":
-                    sortStatus = Status.NotDone;
-                    break;
-
-                case "in-progress":
-                    sortStatus = Status.InProgress;
-                    break;
-
-                default:
-                    Console.WriteLine("Unknown command, please try again!");
-                    break;
-            }
-
-            result += taskManager.ListTasks(TaskFields.Id, sortStatus);
-        }
-
-        Console.Write(result);
-
-        break;
-
-    default:
-        Console.WriteLine("Unknown command, please try again!");
-        break;
-}
-
-
-List<Task_CLI.Task> outputTasks = taskManager.DumpTasks();
-
-jsonText = JsonSerializer.Serialize(outputTasks);
-File.WriteAllText("data.json", jsonText);
-
-*/
