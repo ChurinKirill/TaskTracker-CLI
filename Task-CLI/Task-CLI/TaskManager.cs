@@ -90,6 +90,12 @@
             return result;
         }
 
+        public void DeleteTask(int id)
+        {
+            var itemRemove = this.tasks.Single(r => r.id == id) ?? throw new Exception($"Task with given ID ({id}) does not exist");
+            this.tasks.Remove(itemRemove);
+        }
+
         public List<Task> DumpTasks()
         {
             return this.tasks;

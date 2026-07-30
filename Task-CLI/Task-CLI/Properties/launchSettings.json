@@ -1,7 +1,8 @@
 {
   "profiles": {
     "Task-CLI": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "add -d jfdjk"
     }
   }
 }
